@@ -1,0 +1,65 @@
+insert overwrite table nyc_taxi_data_partitioned partition(dmonth, dday)
+select rowid int,
+vendorid int,
+tpep_pickup_datetime timestamp,
+tpep_dropoff_datetime timestamp,
+passenger_count int,
+trip_distance double,
+ratecodeid int,
+store_and_fwd_flag string,
+pulocationid int,
+dolocationid int,
+payment_type int,
+fare_amount double,
+extra double,
+mta_tax double,
+tip_amount double,
+tolls_amount double,
+improvement_surcharge double,
+total_amount double, MONTH(nyc_taxi_data.tpep_dropoff_datetime	) as dmonth, DAY(nyc_taxi_data.tpep_dropoff_datetime) as dday
+from cs_bhishaj_rohit.nyc_taxi_data
+where nyc_taxi_data.rowid NOT IN (SELECT distinct(A.ROWID)
+FROM(--Erroneous Data check 1
+SELECT dc1.ROWID
+ FROM cs_bhishaj_rohit.nyc_taxi_data dc1
+ WHERE dc1.tpep_pickup_datetime <= '2017-10-31' 
+ OR dc1.tpep_pickup_datetime >= '2018-01-01'
+ OR dc1.tpep_dropoff_datetime <= '2017-10-31'
+ OR dc1.tpep_dropoff_datetime >= '2018-01-01'
+UNION ALL
+--Erroneous Data check 2
+SELECT dc2.ROWID
+ FROM cs_bhishaj_rohit.nyc_taxi_data dc2
+ WHERE dc2.tpep_pickup_datetime > dc2.tpep_dropoff_datetime
+UNION ALL
+--Erroneous Data check 3
+SELECT dc3.rowid
+ FROM cs_bhishaj_rohit.nyc_taxi_data dc3
+ WHERE dc3.passenger_count = 0
+ OR dc3.passenger_count > 8
+UNION ALL
+--Erroneous Data check 4
+SELECT dc4.rowid
+ FROM cs_bhishaj_rohit.nyc_taxi_data dc4
+ WHERE dc4.trip_distance = 0 AND dc4.pulocationid <> dc4.dolocationid
+UNION ALL
+--Erroneous Data check 5
+SELECT dc5.rowid
+ FROM cs_bhishaj_rohit.nyc_taxi_data dc5
+ WHERE dc5.ratecodeid NOT IN (1,2,3,4,5,6)
+UNION ALL
+--Erroneous Data check 6
+SELECT dc6.rowid
+ FROM cs_bhishaj_rohit.nyc_taxi_data dc6
+ WHERE dc6.fare_amount	<= 0 and (dc6.trip_distance > 0 OR dc6.tpep_pickup_datetime < dc6.tpep_dropoff_datetime)
+UNION ALL
+--Erroneous Data check 7
+SELECT dc7.rowid
+FROM cs_bhishaj_rohit.nyc_taxi_data dc7
+WHERE CAST(dc7.total_amount AS DECIMAL(5,2)) <> (CAST(dc7.fare_amount AS DECIMAL(5,2))
+															+CAST(dc7.extra AS DECIMAL(5,2))
+															+CAST(dc7.mta_tax AS DECIMAL(5,2))
+															+CAST(dc7.tip_amount AS DECIMAL(5,2))
+															+CAST(dc7.tolls_amount AS DECIMAL(5,2))
+															+CAST(dc7.improvement_surcharge AS DECIMAL(5,2)))
+) A);
